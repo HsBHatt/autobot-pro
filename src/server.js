@@ -94,5 +94,5 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', version: '2.1', timestamp: new Date().toISOString() });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => log(`🚀 AutoBot Pro running on port ${PORT}`));
