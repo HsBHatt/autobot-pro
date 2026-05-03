@@ -1,83 +1,83 @@
 'use strict';
 
-const path  = require('path');
-const fs    = require('fs');
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore } = require('@whiskeysockets/baileys');
+const path = require('path');
+const fs   = require('fs');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeCacheableSignalKeyStore, PHONENUMBER_MCC } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const pino   = require('pino');
 
 const AUTH_DIR = '/tmp/wa_auth';
-let _io, _socket, _session = null;
+let _io, _session = null;
 const msgLog = [];
 let retryCount = 0;
+let isStarting = false;
 
 function setIo(io) { _io = io; }
 function emit(event, data) { if (_io) _io.emit(event, data); }
 
 async function startSession() {
+  if (isStarting) return;
+  isStarting = true;
+
   try {
     fs.mkdirSync(AUTH_DIR, { recursive: true });
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
     const { version } = await fetchLatestBaileysVersion();
+    console.log('[WA] Using version:', version);
 
-    console.log('[WA] Starting with version:', version);
-
-    _socket = makeWASocket({
+    _session = makeWASocket({
       version,
       logger: pino({ level: 'silent' }),
-      printQRInTerminal: true,
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })),
-      },
-      browser: ['AutoBot Pro', 'Chrome', '120.0.0'],
-      connectTimeoutMs: 60000,
-      keepAliveIntervalMs: 25000,
-      retryRequestDelayMs: 2000,
-      maxMsgRetryCount: 3,
-      qrTimeout: 60000,
+      printQRInTerminal: false,
+      auth: state,
+      browser: ['Ubuntu', 'Chrome', '20.0.04'],
+      generateHighQualityLinkPreview: false,
+      syncFullHistory: false,
+      markOnlineOnConnect: false,
+      connectTimeoutMs: 30000,
+      keepAliveIntervalMs: 10000,
     });
 
-    _session = _socket;
-
-    _socket.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
+    _session.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
       if (qr) {
-        retryCount = 0;
-        console.log('[WA] QR code generated — sending to dashboard');
-        const dataUrl = await QRCode.toDataURL(qr);
+        console.log('[WA] QR ready — sending to dashboard');
+        const dataUrl = await QRCode.toDataURL(qr, { width: 300 });
         emit('qr', dataUrl);
         emit('status', { status: 'qr_ready' });
       }
 
       if (connection === 'open') {
         retryCount = 0;
-        const number = _socket.user?.id?.split(':')[0] || '';
-        console.log('[WA] Connected:', number);
+        isStarting = false;
+        const number = _session.user?.id?.split(':')[0] || '';
+        console.log('[WA] ✅ Connected:', number);
         emit('status', { status: 'connected', number });
         emit('message_history', msgLog);
       }
 
       if (connection === 'close') {
+        isStarting = false;
         const code = lastDisconnect?.error?.output?.statusCode;
         const loggedOut = code === DisconnectReason.loggedOut;
-        console.log('[WA] Disconnected, code:', code, 'retry:', retryCount);
-        emit('status', { status: loggedOut ? 'auth_failed' : 'disconnected' });
+        console.log('[WA] Closed, code:', code);
 
         if (loggedOut) {
           fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-          retryCount = 0;
+          emit('status', { status: 'auth_failed' });
         } else {
+          emit('status', { status: 'disconnected' });
           retryCount++;
-          const delay = Math.min(retryCount * 3000, 30000);
-          console.log('[WA] Reconnecting in', delay, 'ms');
+          const delay = Math.min(retryCount * 5000, 60000);
+          console.log('[WA] Retry in', delay/1000, 's');
           setTimeout(startSession, delay);
         }
       }
     });
 
-    _socket.ev.on('creds.update', saveCreds);
+    _session.ev.on('creds.update', saveCreds);
 
-    _socket.ev.on('messages.upsert', ({ messages }) => {
+    _session.ev.on('messages.upsert', ({ messages, type }) => {
+      if (type !== 'notify') return;
       for (const msg of messages) {
         if (!msg.message || msg.key.fromMe) continue;
         const from = msg.key.remoteJid?.replace('@s.whatsapp.net', '') || 'Unknown';
@@ -93,8 +93,9 @@ async function startSession() {
     });
 
   } catch (err) {
-    console.error('[WA] startSession error:', err.message);
-    setTimeout(startSession, 10000);
+    isStarting = false;
+    console.error('[WA] Error:', err.message);
+    setTimeout(startSession, 15000);
   }
 }
 
