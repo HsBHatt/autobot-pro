@@ -1,4 +1,6 @@
-/**
+const cors          = require('cors');
+const settingsRoute = require('./routes/settings');
+const statusRoute   = require('./routes/status');/**
  * AutoBot Pro — WhatsApp × Shopify × WordPress Automation
  * No third-party middleware. Direct API integrations only.
  * (c) Your Agency Name — White-label ready
