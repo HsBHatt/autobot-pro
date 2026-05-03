@@ -6,7 +6,8 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const QRCode = require('qrcode');
 const pino   = require('pino');
 
-const AUTH_DIR = path.join(__dirname, '../../wa_auth');
+const AUTH_DIR = '/tmp/wa_auth';
+
 let _io, _socket, _session = null;
 const msgLog = [];
 
@@ -51,7 +52,7 @@ async function startSession() {
       emit('status', { status: loggedOut ? 'auth_failed' : 'disconnected' });
       console.log('[WA] Disconnected, code:', code);
       if (!loggedOut) {
-        setTimeout(startSession, 5000); // auto-reconnect
+        setTimeout(startSession, 5000);
       } else {
         fs.rmSync(AUTH_DIR, { recursive: true, force: true });
       }
