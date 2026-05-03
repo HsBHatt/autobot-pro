@@ -97,4 +97,6 @@ app.get('/health', (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => log(`🚀 AutoBot Pro running on port ${PORT}`));
+app.use(cors({ origin: '*', allowedHeaders: ['Content-Type', 'x-api-key'] }));
+app.use('/api', statusRoute);
+app.use('/api/settings', settingsRoute);app.listen(PORT, () => log(`🚀 AutoBot Pro running on port ${PORT}`));
