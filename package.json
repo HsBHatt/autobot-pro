@@ -1,17 +1,20 @@
 {
   "name": "autobot-pro",
-  "version": "2.1.0",
-  "description": "WhatsApp × Shopify × WordPress Automation Bot — No third-party middleware",
+  "version": "2.2.0",
+  "description": "WhatsApp × Shopify Automation Bot",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "setup-webhooks": "node scripts/register-webhooks.js"
+    "dev": "nodemon src/server.js"
   },
   "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "cors": "^2.8.5"
+    "pino": "^9.1.0",
+    "qrcode": "^1.5.3",
+    "socket.io": "^4.7.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
@@ -19,6 +22,5 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["whatsapp", "shopify", "wordpress", "automation", "bot"],
   "license": "UNLICENSED"
 }
